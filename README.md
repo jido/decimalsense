@@ -6,6 +6,9 @@ Decimal numbers do not need be that complex.
 
 This is an attempt at making a decimal number format similar to decimal64, but with _less complications_.
 
+Numbers
+=======
+
 Normal number range:
 
 **1.0e-510** to **9.999,999,999,999,999e+511**
@@ -16,33 +19,33 @@ Subnormal number range (non-zero):
 
 **1.0e-526** to **9.999,999,999,999,999e-511**
 
-(hexadecimal _0000000000000001_ to _002386F26FC0FFFF_)
+(hexadecimal _1_ to _002386F26FC0FFFF_)
 
 Zero:
 
-hexadecimal _0_
+> hexadecimal _0_
 
 Negative zero:
 
-hexadecimal _8000000000000000_
+> hexadecimal _8000000000000000_
 
 One:
 
-hexadecimal _3FF0000000000000_
+> hexadecimal _3FF0000000000000_
 
 Ten:
 
-hexadecimal _4010000000000000_
+> hexadecimal _4010000000000000_
 
 Infinity:
 
-hexadecimal _7FF0000000000000_
+> hexadecimal _7FF0000000000000_
 
 Negative infinity:
 
-hexadecimal _FFF0000000000000_
+> hexadecimal _FFF0000000000000_
 
-Decimalsense numbers are _monotone_, the unsigned part is ordered when cast as integer
+Decimalsense numbers are _monotonic_, the unsigned part is ordered when cast as integer
 
 Format
 ======
@@ -67,10 +70,10 @@ Exponent is offset by 511
 Normal numbers
 --------------
 
- * Offset by 0x0010000000000000 which increases the exponent range by 1
- * The mantissa is normalised, it goes from 1,000,000,000,000,000 to 9,999,999,999,999,999
+ * Offset by _0x0010000000000000_ which increases the exponent range by 1
+ * The mantissa is normalised, it goes from _1,000,000,000,000,000_ to _9,999,999,999,999,999_
 
-Add 1,000,000,000,000,000 to the 53-bit number to read the actual mantissa
+Add _1,000,000,000,000,000_ to the 53-bit number to read the actual mantissa
  
 Subnormal numbers
 -----------------
