@@ -78,4 +78,4 @@ Add _1,000,000,000,000,000_ to the 53-bit number to read the actual mantissa
 Subnormal numbers
 -----------------
 
- Equivalent to 64-bit integers (ignoring the sign bit) from 0 to 9,999,999,999,999,999
+ Equivalent to 64-bit integers (ignoring the sign bit) from _0_ to _9,999,999,999,999,999_
