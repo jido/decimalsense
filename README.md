@@ -46,7 +46,10 @@ Negative infinity:
 > hexadecimal _FFF00000 00000000_
 
 Decimalsense numbers are _monotonic_, the unsigned part is ordered when cast as integer, and _unique_: 
-there is only one way to represent a particular number. Not a Number (NaN) can have several representations.
+there is only one way to encode a particular nonzero number.
+Not a Number (NaN) can have several representations.
+
+According to IEEE, positive and negative zero are equal which is the only exception to unique number representation.
 
 Format
 ======
