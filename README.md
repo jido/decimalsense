@@ -45,7 +45,8 @@ Negative infinity:
 
 > hexadecimal _FFF00000 00000000_
 
-Decimalsense numbers are _monotonic_, the unsigned part is ordered when cast as integer
+Decimalsense numbers are _monotonic_, the unsigned part is ordered when cast as integer, and _unique_: 
+there is only one way to represent a particular number. Not a Number (NaN) can have several representations.
 
 Format
 ======
