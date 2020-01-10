@@ -11,15 +11,15 @@ Numbers
 
 Normal number range:
 
-**1.0e-510** to **9.999,999,999,999,999e+510**
+**1.0e-511** to **9.999,999,999,999,999e+510**
 
-(hexadecimal _400000 00000000_ to _7FDFF973 CAFA7FFF_)
+(hexadecimal _200000 00000000_ to _7FDFF973 CAFA7FFF_)
 
 Subnormal number range (non-zero):
 
-**1.0e-526** to **9.999,999,999,999,999e-511**
+**1.0e-526** to **9.999,999,999,999,99e-512**
 
-(hexadecimal _1_ to _2386F2 6FC0FFFF_)
+(hexadecimal _1_ to _38D7E A4C67FFF_)
 
 Zero:
 
@@ -55,19 +55,17 @@ Format
 ======
 
 ~~~
-seeeeeee eepmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm
+seeeeeee eeemmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm
 ~~~
 
    `s` = sign bit
    
-   `e` = 10-bit exponent (with `p`)
-   
-   `p` = lowest bit of exponent or highest bit of mantissa (subnormal numbers)
+   `e` = 10-bit exponent
    
    `m` = 53-bit mantissa
 
  * If `e` is all 0 then it is a subnormal number
- * If `e` and `p` are all 1 then it is an _Infinity_ or _NaN_
+ * If `e` is all 1 then it is an _Infinity_ or _NaN_
  
 Normal numbers
 --------------
@@ -78,8 +76,10 @@ Normal numbers
 Take _512_ away from the 10-bit exponent value to read the actual exponent;
 
 Add _1,000,000,000,000,000_ to the 53-bit number to read the actual mantissa
- 
+
 Subnormal numbers
 -----------------
 
- Equivalent to 64-bit integers (ignoring the sign bit) from _0_ to _9,999,999,999,999,999_
+Equivalent to 64-bit integers (ignoring the sign bit) from _0_ to _999,999,999,999,999_;
+
+Their exponent is _-511_ and there is no value to add to the mantissa, as it only encodes lower precision numbers between 0.0 and 1.0
