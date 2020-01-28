@@ -50,14 +50,17 @@ char * numberAsString(decimal num) {
     {
         return "NaN";
     }
-    if (positive >= 0x0030000000000000L)
+    if (positive >= 0x0020000000000000L)
     {
         // Not a subnormal number
-        positive -= 0x0010000000000000L;    // Shift the range half-way
-        expn += positive >> 53;
+        expn += (positive >> 53) - 1;
         positive = (positive & 0x001fffffffffffffL) + 1000000000000000L;
+        if (positive > 9999999999999999L)
+        {
+            return "NaN";
+        }
     }
-    if (positive > 9999999999999999L)
+    else if (positive > 999999999999999L)
     {
         return "NaN";
     }
@@ -75,27 +78,27 @@ decimal makeNumber_(uint64_t negat, uint64_t decimals, uint64_t expn) {
     if (expn == 0) return result | decimals;
     result |= expn << 53;
     result |= decimals - 1000000000000000L;
-    return result + 0x0010000000000000L;
+    return result; // + 0x0010000000000000L;
 }
 
 decimal makeNumber(int units, uint64_t decimals, int expn) {
-    return makeNumber_(units < 0, decimals + abs(units) * 1000000000000000L, expn + 511);
+    return makeNumber_(units < 0, decimals + abs(units) * 1000000000000000L, expn + 512);
 }
 
 int numberParts_(decimal num, int * expn, uint64_t * decimals)
 {
-    int e = (num >> 52) & 0x7ff;
-    if (e <= 2)
+    int e = (num >> 53) & 0x3ff;
+    if (e == 0)
     {
         // Subnormal number
         *expn = 0;
-        *decimals = num & 0x003fffffffffffffL;
+        *decimals = num & 0x001fffffffffffffL;
     }
     else
     {
         // Normal number
-        *expn = (e - 1) / 2;
-        *decimals = 1000000000000000L + ((num - 0x0010000000000000L) & 0x001fffffffffffffL);
+        *expn = e;
+        *decimals = 1000000000000000L + (num & 0x001fffffffffffffL);
     }
     return num >> 63;   // sign bit
 }
@@ -147,10 +150,10 @@ decimal add(decimal a, decimal b) {
     int expn = (exp_a > exp_b) ? exp_a : exp_b;
     uint64_t sign = 0;
     uint64_t sum;
-    if (exp_a == exp_b)
+    if (exp_a == exp_b || expn == 1)
     {
         // Same exponent
-        if (sign_a != sign_b && ((sign_a == 1 && m_a > m_b) || (sign_b == 1 && m_b > m_a)))
+        if ((sign_a == 1 && m_a > m_b) || (sign_b == 1 && m_b > m_a))
         {
             sign = 1;
         }
@@ -159,14 +162,14 @@ decimal add(decimal a, decimal b) {
     else
     {
         // Different exponents
-        if (sign_a != sign_b && ((sign_a == 1 && exp_a == expn) || (sign_b == 1 && exp_b == expn)))
+        if ((sign_a == 1 && exp_a == expn) || (sign_b == 1 && exp_b == expn))
         {
             sign = 1;
         }
         int exp_diff = abs(exp_b - exp_a);
         uint64_t large = (exp_a == expn) ? m_a : m_b;
         uint64_t small = (exp_a == expn) ? m_b : m_a;
-        if (sign_a != sign_b && large < 2000000000000000L)
+        if (sign_a != sign_b && expn > 1 && large < 1999999999999999L)                                
         {
             // Sum could lose precision
             large *= 10;
@@ -181,9 +184,9 @@ decimal add(decimal a, decimal b) {
         sum /= 10;
         ++expn;
     }
-    while (expn != 0 && sum < 1000000000000000L)
+    while (expn > 0 && sum < 1000000000000000L)
     {
-        sum *= 10;
+        if (expn > 1) sum *= 10;
         --expn;
     }
     return makeNumber_(sign, sum, expn);
@@ -205,7 +208,7 @@ decimal mul(decimal a, decimal b) {
     int sign_a = numberParts_(a, &exp_a, &m_a);
     int sign_b = numberParts_(b, &exp_b, &m_b);
     uint64_t negat = (sign_a != sign_b);
-    int expn = exp_a + exp_b - 511;
+    int expn = exp_a + exp_b - 512;
     if (expn < 0)
     {
         // Too small, return zero
@@ -224,9 +227,9 @@ decimal mul(decimal a, decimal b) {
             prod /= 10;
             expn += 1;
         }
-        while (expn != 0 && prod < 1000000000000000L)
+        while (expn > 0 && prod < 1000000000000000L)
         {
-            prod *= 10;
+            if (expn > 1) prod *= 10;
             --expn;
         }
         return makeNumber_(negat, prod, expn);
@@ -239,7 +242,7 @@ decimal divs(decimal a, decimal b) {
     int sign_a = numberParts_(a, &exp_a, &m_a);
     int sign_b = numberParts_(b, &exp_b, &m_b);
     uint64_t negat = (sign_a != sign_b);
-    int expn = exp_a - exp_b + 510;
+    int expn = exp_a - exp_b + 511;
     uint128_t quo = ((uint128_t) m_a * 10000000000000000L) / m_b;
     while (quo > 9999999999999999L) // note: should only loop if b is subnormal
     {
@@ -251,37 +254,36 @@ decimal divs(decimal a, decimal b) {
         quo /= 10;
         expn += 1;
     }
-    while (quo < 1000000000000000L)
+    while (expn > 0 && quo < 1000000000000000L)
     {
-        if (expn == 0) break;       // subnormal number
-        quo *= 10;
+        if (expn > 1) quo *= 10;
         --expn;
     }
     return makeNumber_(negat, quo, expn);
 }
 
 int main(int n, char * args[]) {
-    puts(numberAsString(0x7feFF973CAFA7FFFL));  // Largest number 9.99...e+511
-    puts(numberAsString(0x0030000000000000L));  // Smallest normal number 1.0e-510
-    puts(numberAsString(0x002386F26FC0FFFFL));  // Largest subnormal number 9.99...e-511
+    puts(numberAsString(0x7fdFF973CAFA7FFFL));  // Largest number 9.99...e+510
+    puts(numberAsString(0x0020000000000000L));  // Smallest normal number 1.0e-511
+    puts(numberAsString(0x00038D7EA4C67FFFL));  // Largest subnormal number 9.99...e-512
     puts(numberAsString(0x0000000000000001L));  // Smallest number 1.0e-526
     puts(numberAsString(makeNumber(+4, 698543100238333L, +10)));
-    puts(numberAsString(10000000000000000L));   // Not a number (over 16 digits)
-    puts(numberAsString(0x7ff0000000000000L));      // +∞
-    puts(numberAsString(makeNumber(-1, 0, +512)));  // -∞
-    printf("Zero: 0x%.16llx \n", makeNumber(0, 0, -511));        // 0
-    printf("One: 0x%.16llx \n", makeNumber(+1, 0, 0));           // 0x3ff0000000000000
-    printf("Ten: 0x%.16llx \n", makeNumber(+1, 0, +1));          // 0x4010000000000000
-    printf("Minus five dot five: 0x%.16llx \n", makeNumber(-5, 500000000000000L, 0));    // 0xbffffcb9e57d4000
-    puts(numberAsString(add(makeNumber(+1, 0, -510), 1234567)));
+    puts(numberAsString(1000000000000000L));    // Not a number (over 15 digits)
+    puts(numberAsString(0x7ff0000000000000L));  // +∞
+    puts(numberAsString(0xfff0000000000000L));  // -∞
+    printf("Zero: 0x%.16llx \n", makeNumber(0, 0, -512));        // 0
+    printf("One: 0x%.16llx \n", makeNumber(+1, 0, 0));           // 0x4000000000000000
+    printf("Ten: 0x%.16llx \n", makeNumber(+1, 0, +1));          // 0x4020000000000000
+    printf("Minus five dot five: 0x%.16llx \n", makeNumber(-5, 500000000000000L, 0));    // 0xc00ffcb9e57d4000
+    puts(numberAsString(add(makeNumber(+1, 0, -511), 1234567)));
     puts(numberAsString(add(makeNumber(+1, 9, 0), makeNumber(+1, 4, 0))));
-    puts(numberAsString(add(makeNumber(-1, 0, -510), 1234567)));
-    puts(numberAsString(sub(makeNumber(-1, 0, 0), makeNumber(-1, 234567890000000L, -10))));
+    puts(numberAsString(add(makeNumber(-1, 0, -511), 1234567)));
+    puts(numberAsString(sub(makeNumber(1, 0, 0), makeNumber(1, 234567890000000L, -10))));
     puts(numberAsString(sub(makeNumber(+1, 9, 105), makeNumber(+1, 4, 105))));
     puts(numberAsString(mul(makeNumber(3, 0, +3), makeNumber(5, 0, 0))));
-    puts(numberAsString(mul(makeNumber(-1, 0, -510), 1234567)));
-    puts(numberAsString(mul(makeNumber(-1, 0, +1), 1234567)));
+    puts(numberAsString(mul(makeNumber(-1, 0, -511), 1234567)));
+    puts(numberAsString(mul(makeNumber(-1, 0, +1), 1234567)));    // TODO: should give -0.000000012345670e-511
     puts(numberAsString(divs(makeNumber(3, 0, +3), makeNumber(5, 0, 0))));
-    puts(numberAsString(divs(makeNumber(-1, 0, -510), 1234567)));
+    puts(numberAsString(divs(makeNumber(-1, 0, -511), 1234567))); // TODO: should give -8.100005913004316e+8
     puts(numberAsString(divs(makeNumber(-1, 0, +1), 1234567)));
 }
