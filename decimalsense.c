@@ -78,7 +78,7 @@ decimal makeNumber_(uint64_t negat, uint64_t decimals, uint64_t expn) {
     if (expn == 0) return result | decimals;
     result |= expn << 53;
     result |= decimals - 1000000000000000L;
-    return result; // + 0x0010000000000000L;
+    return result;
 }
 
 decimal makeNumber(int units, uint64_t decimals, int expn) {
@@ -87,18 +87,12 @@ decimal makeNumber(int units, uint64_t decimals, int expn) {
 
 int numberParts_(decimal num, int * expn, uint64_t * decimals)
 {
-    int e = (num >> 53) & 0x3ff;
-    if (e == 0)
-    {
-        // Subnormal number
-        *expn = 0;
-        *decimals = num & 0x001fffffffffffffL;
-    }
-    else
+    *expn = (num >> 53) & 0x3ff;
+    *decimals = num & 0x001fffffffffffffL;
+    if (*expn > 0)
     {
         // Normal number
-        *expn = e;
-        *decimals = 1000000000000000L + (num & 0x001fffffffffffffL);
+        *decimals += 1000000000000000L;
     }
     return num >> 63;   // sign bit
 }
