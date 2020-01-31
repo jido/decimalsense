@@ -3,32 +3,29 @@
 
  Format:
  =======
- seeeeeee eepmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm
+ seeeeeee eeemmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm mmmmmmmm
 
  s = sign bit
- e = 10-bit exponent (with p)
- p = lowest bit of exponent or highest bit of mantissa (subnormal numbers)
+ e = 10-bit exponent
  m = 53-bit mantissa
 
- Exponent is offset by 511
- If e is all 0 then it is a subnormal number unless p = 1 and leftmost m bit = 1
- If e is all 1 then it is an Infinity or NaN unless p = 0 or leftmost m bit = 0
+ Exponent is offset by 512
+ If e is all 0 then it is a subnormal number
+ If e is all 1 then it is an Infinity or NaN
 
  Normal numbers
  ==============
- Offset by 0x0010000000000000 which increases the exponent range by 1
  The mantissa is normalised, it goes from 1,000,000,000,000,000 to 9,999,999,999,999,999
  Add 1,000,000,000,000,000 to the 53-bit number to read the actual mantissa
 
  Subnormal numbers
  =================
- Equivalent to 64-bit integers (ignoring the sign bit) from 0 to 9,999,999,999,999,999
+ Equivalent to 64-bit integers (ignoring the sign bit) from 0 to 999,999,999,999,999
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 
 typedef uint64_t decimal;
 
@@ -66,9 +63,10 @@ char * numberAsString(decimal num) {
     }
     
     result[0] = sign;
-    sprintf(result + 1, "%0.16llu", positive);
-    memmove(result + 3, result + 2, 15);
+    sprintf(result + 2, "%0.16llu", positive);
+    result[1] = result[2];
     result[2] = '.';
+    result[18] = 'e';
     sprintf(result + 19, "%+d", expn);
     return result;
 }
