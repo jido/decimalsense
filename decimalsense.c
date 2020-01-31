@@ -250,7 +250,10 @@ decimal divs(decimal a, decimal b) {
             // Too large, return infinity
             return 0x7ff0000000000000L | (negat << 63);
         }
-        if (quo == 0) break;
+        if (quo == 0)
+        {
+            return negat << 63;
+        }
         quo /= 10;
         expn += 1;
     }
