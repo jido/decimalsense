@@ -201,6 +201,11 @@ decimal mul(decimal a, decimal b) {
     int sign_b = numberParts_(b, &exp_b, &m_b);
     uint64_t negat = (sign_a != sign_b);
     int expn = exp_a + exp_b - 512;
+    if (exp_a == 0 || exp_b == 0)
+    {
+        // Subnormal exponent is -511 instead of -512
+        expn += 1;
+    }
     if (expn < 0)
     {
         // Too small, return zero
@@ -234,15 +239,18 @@ decimal divs(decimal a, decimal b) {
     int sign_a = numberParts_(a, &exp_a, &m_a);
     int sign_b = numberParts_(b, &exp_b, &m_b);
     uint64_t negat = (sign_a != sign_b);
-    int expn = exp_a - exp_b + 511;
-    uint128_t quo = ((uint128_t) m_a * 10000000000000000L) / m_b;
-    while (quo > 9999999999999999L) // note: should only loop if b is subnormal
+    int expn = exp_a - exp_b + 512;
+    if (exp_a == 0) expn += 1;      // subnormal exponent is -511
+    if (exp_b == 0) expn -= 1;      // instead of -512, so adjust it
+    uint128_t quo = ((uint128_t) m_a * 1000000000000000L) / m_b;
+    while (expn < 0 || quo > 9999999999999999L)
     {
-        if (expn == 1022)
+        if (expn >= 1022)
         {
             // Too large, return infinity
             return 0x7ff0000000000000L | (negat << 63);
         }
+        if (quo == 0) break;
         quo /= 10;
         expn += 1;
     }
@@ -274,8 +282,9 @@ int main(int n, char * args[]) {
     puts(numberAsString(sub(makeNumber(+1, 9, 105), makeNumber(+1, 4, 105))));
     puts(numberAsString(mul(makeNumber(3, 0, +3), makeNumber(5, 0, 0))));
     puts(numberAsString(mul(makeNumber(-1, 0, -511), 1234567)));
-    puts(numberAsString(mul(makeNumber(-1, 0, +1), 1234567)));    // TODO: should give -0.000000012345670e-511
+    puts(numberAsString(mul(makeNumber(-1, 0, +1), 1234567)));
     puts(numberAsString(divs(makeNumber(3, 0, +3), makeNumber(5, 0, 0))));
-    puts(numberAsString(divs(makeNumber(-1, 0, -511), 1234567))); // TODO: should give -8.100005913004316e+8
-    puts(numberAsString(divs(makeNumber(-1, 0, +1), 1234567)));
+    puts(numberAsString(divs(makeNumber(-1, 0, -511), 1234567)));
+    puts(numberAsString(divs(makeNumber(-1, 0, -9), 1234567)));
+    puts(numberAsString(divs(makeNumber(3, 0, -110), makeNumber(4, 0, 400))));
 }
