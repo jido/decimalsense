@@ -38,16 +38,21 @@ const decimal INFINITY = 0x7ffffc0000000000L;
 const decimal NAN =      0x7ffffe0000000001L;
 const int EXPONENT_MAX = 511;
 #endif
-const int EXPONENT_MIN = -511;
 const int EXPONENT_OFFSET = 512;
 const int EXPONENT_SHIFT = 53;
 const decimal EXPONENT_MASK = 0x3ffL;
 const int SIGN_SHIFT = 63;
 const decimal SIGN_BIT = 1L << SIGN_SHIFT;
 const decimal SIGNIFICAND_MASK = 0x001fffffffffffffL;
-const decimal SIGNIFICAND_OFFSET = 1000000000000000L;
 const decimal SIGNIFICAND_MAX =    9999999999999999L;
 const decimal UNIT_DIGIT =         1000000000000000L;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
+const int EXPONENT_MIN = -511;
+const decimal SIGNIFICAND_OFFSET = 1000000000000000L;
+#else
+const int EXPONENT_MIN = -512;
+const decimal SIGNIFICAND_OFFSET = 1000000000000000L;
+#endif
 
 char * numberAsString(decimal num) {
     static char result[] = "+1.234567890123456e-123";
@@ -67,19 +72,26 @@ char * numberAsString(decimal num) {
     {
         return "NaN";
     }
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     if (positive >= (1L << EXPONENT_SHIFT))
     {
         // Not a subnormal number
-        expn += (positive >> EXPONENT_SHIFT) - 1;
+#else
+    if (positive != 0)
+    {
+#endif
+        expn = (positive >> EXPONENT_SHIFT) - EXPONENT_OFFSET;
         positive = (positive & SIGNIFICAND_MASK) + SIGNIFICAND_OFFSET;
         if (positive > SIGNIFICAND_MAX)
         {
             return "NaN";
         }
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     }
     else if (positive > SIGNIFICAND_MAX / 10)
     {
         return "NaN";
+#endif
     }
     
     result[0] = sign;
@@ -93,9 +105,15 @@ char * numberAsString(decimal num) {
 
 decimal makeNumber_(uint64_t negat, uint64_t decimals, uint64_t expn) {
     decimal result = negat << SIGN_SHIFT;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     if (expn == 0) return result | decimals;
+#endif
     result |= expn << EXPONENT_SHIFT;
-    result |= decimals - SIGNIFICAND_OFFSET;
+#ifndef ENABLE_SUBNORMAL_NUMBERS
+    // Clip to zero if value < 1.0e-512 (assuming expn == 0)
+    if (decimals > SIGNIFICAND_OFFSET)
+#endif
+        result |= decimals - SIGNIFICAND_OFFSET;
     return result;
 }
 
@@ -107,11 +125,15 @@ int numberParts_(decimal num, int * expn, uint64_t * decimals)
 {
     *expn = (num >> EXPONENT_SHIFT) & EXPONENT_MASK;
     *decimals = num & SIGNIFICAND_MASK;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     if (*expn > 0)
     {
         // Normal number
+#endif
         *decimals += SIGNIFICAND_OFFSET;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     }
+#endif
     return num >> SIGN_SHIFT;   // sign bit
 }
 
@@ -198,7 +220,10 @@ decimal add(decimal a, decimal b) {
     }
     while (expn > 0 && sum < UNIT_DIGIT)
     {
-        if (expn > 1) sum *= 10;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
+        if (expn > 1)
+#endif
+            sum *= 10;
         --expn;
     }
     return makeNumber_(sign, sum, expn);
@@ -221,11 +246,13 @@ decimal mul(decimal a, decimal b) {
     int sign_b = numberParts_(b, &exp_b, &m_b);
     uint64_t negat = (sign_a != sign_b);
     int expn = exp_a + exp_b - EXPONENT_OFFSET;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     if (exp_a == 0 || exp_b == 0)
     {
         // Subnormal exponent is -511 instead of -512
         expn += 1;
     }
+#endif
     if (expn < 0)
     {
         // Too small, return zero
@@ -246,7 +273,10 @@ decimal mul(decimal a, decimal b) {
         }
         while (expn > 0 && prod < UNIT_DIGIT)
         {
-            if (expn > 1) prod *= 10;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
+            if (expn > 1)
+#endif
+                prod *= 10;
             --expn;
         }
         return makeNumber_(negat, prod, expn);
@@ -260,8 +290,10 @@ decimal divs(decimal a, decimal b) {
     int sign_b = numberParts_(b, &exp_b, &m_b);
     uint64_t negat = (sign_a != sign_b);
     int expn = exp_a - exp_b + EXPONENT_OFFSET;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     if (exp_a == 0) expn += 1;      // subnormal exponent is -511
     if (exp_b == 0) expn -= 1;      // instead of -512, so adjust it
+#endif
     uint128_t quo = ((uint128_t) m_a * UNIT_DIGIT) / m_b;
     while (expn < 0 || quo > SIGNIFICAND_MAX)
     {
@@ -279,7 +311,10 @@ decimal divs(decimal a, decimal b) {
     }
     while (expn > 0 && quo < UNIT_DIGIT)
     {
-        if (expn > 1) quo *= 10;
+#ifdef ENABLE_SUBNORMAL_NUMBERS
+        if (expn > 1)
+#endif
+            quo *= 10;
         --expn;
     }
     return makeNumber_(negat, quo, expn);
@@ -291,14 +326,16 @@ int main(int n, char * args[]) {
 #else
     puts(numberAsString(0x7fdFF973CAFA7FFFL));  // Largest number 9.99...e+510 (standard)
 #endif
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     puts(numberAsString(0x0020000000000000L));  // Smallest normal number 1.0e-511
     puts(numberAsString(0x00038D7EA4C67FFFL));  // Largest subnormal number 9.99...e-512
+#endif
     puts(numberAsString(0x0000000000000001L));  // Smallest number 1.0e-526
     puts(numberAsString(makeNumber(+4, 698543100238333L, +10)));
-    puts(numberAsString(1000000000000000L));    // Not a number (over 15 digits)
-    puts(numberAsString(0x7ff0000000000000L));  // +∞
+    puts(numberAsString(9000000000000001L));    // Not a number (over 15 digits)
+    puts(numberAsString(INFINITY));  // +∞
     puts(numberAsString(SIGN_BIT | INFINITY));  // -∞
-    printf("Zero: 0x%.16llx \n", makeNumber(0, 0, -EXPONENT_OFFSET));        // 0
+    printf("Zero: 0x%.16llx \n", makeNumber(1, 0, -EXPONENT_OFFSET));        // 0
     printf("One: 0x%.16llx \n", makeNumber(+1, 0, 0));           // 0x4000000000000000
     printf("Ten: 0x%.16llx \n", makeNumber(+1, 0, +1));          // 0x4020000000000000
     printf("Minus five dot five: 0x%.16llx \n", makeNumber(-5, 500000000000000L, 0));    // 0xc00ffcb9e57d4000
