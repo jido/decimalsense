@@ -90,7 +90,7 @@ char * numberAsString(decimal num) {
         {
             return "NaN";
         }
-#ifndef ENABLE_SUBNORMAL_NUMBERS
+#ifdef ENABLE_SUBNORMAL_NUMBERS
     }
     else if (positive > SIGNIFICAND_MAX / 10)
     {
