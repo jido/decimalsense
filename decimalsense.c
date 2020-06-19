@@ -41,18 +41,18 @@ const int EXPONENT_MAX = 511;
 const int EXPONENT_OFFSET = 512;
 const int EXPONENT_SHIFT = 53;
 const decimal EXPONENT_MASK = 0x3ffL;
-const int SIGN_SHIFT = 63;
-const decimal SIGN_BIT = 1L << SIGN_SHIFT;
-const decimal SIGNIFICAND_MASK = 0x001fffffffffffffL;
-const decimal SIGNIFICAND_MAX =    9999999999999999L;
-const decimal UNIT_DIGIT =         1000000000000000L;
 #ifdef ENABLE_SUBNORMAL_NUMBERS
 const int EXPONENT_MIN = -511;
 const decimal SIGNIFICAND_OFFSET = 1000000000000000L;
 #else
 const int EXPONENT_MIN = -512;
-const decimal SIGNIFICAND_OFFSET = 1000000000000000L;
+const decimal SIGNIFICAND_OFFSET = 999999999999999L;
 #endif
+const decimal SIGNIFICAND_MASK = 0x001fffffffffffffL;
+const decimal SIGNIFICAND_MAX =    9999999999999999L;
+const decimal UNIT_DIGIT =         1000000000000000L;
+const int SIGN_SHIFT = 63;
+const decimal SIGN_BIT = 1L << SIGN_SHIFT;
 
 char * numberAsString(decimal num) {
     static char result[] = "+1.234567890123456e-123";
@@ -82,11 +82,15 @@ char * numberAsString(decimal num) {
 #endif
         expn = (positive >> EXPONENT_SHIFT) - EXPONENT_OFFSET;
         positive = (positive & SIGNIFICAND_MASK) + SIGNIFICAND_OFFSET;
-        if (positive > SIGNIFICAND_MAX)
+        if (positive > SIGNIFICAND_MAX
+#ifndef ENABLE_SUBNORMAL_NUMBERS
+            || positive < UNIT_DIGIT
+#endif
+            )
         {
             return "NaN";
         }
-#ifdef ENABLE_SUBNORMAL_NUMBERS
+#ifndef ENABLE_SUBNORMAL_NUMBERS
     }
     else if (positive > SIGNIFICAND_MAX / 10)
     {
@@ -335,7 +339,7 @@ int main(int n, char * args[]) {
     puts(numberAsString(9000000000000001L));    // Not a number (over 15 digits)
     puts(numberAsString(INFINITY));  // +∞
     puts(numberAsString(SIGN_BIT | INFINITY));  // -∞
-    printf("Zero: 0x%.16llx \n", makeNumber(1, 0, -EXPONENT_OFFSET));        // 0
+    printf("Zero: 0x%.16llx \n", makeNumber(0, 0, -EXPONENT_OFFSET));        // 0
     printf("One: 0x%.16llx \n", makeNumber(+1, 0, 0));           // 0x4000000000000000
     printf("Ten: 0x%.16llx \n", makeNumber(+1, 0, +1));          // 0x4020000000000000
     printf("Minus five dot five: 0x%.16llx \n", makeNumber(-5, 500000000000000L, 0));    // 0xc00ffcb9e57d4000
